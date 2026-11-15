@@ -14,12 +14,12 @@
 <meta property="og:title" content="Voyage Tech | Laptops, Phones &amp; Electronics in Nigeria">
 <meta property="og:description" content="Shop laptops, smartphones and electronics at Voyage Tech. Explore HP, Lenovo, Dell and more, with flexible payment options.">
 <meta property="og:url" content="https://voyagetech.com.ng/">
-<meta property="og:image" content="https://voyagetech.com.ng/og-image.jpg">
+<meta property="og:image" content="https://voyagetech.com.ng/favicon.svg">
 <meta property="og:image:alt" content="Voyage Tech online electronics store">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Voyage Tech | Laptops, Phones &amp; Electronics in Nigeria">
 <meta name="twitter:description" content="Shop laptops, smartphones and electronics at Voyage Tech, with flexible payment options.">
-<meta name="twitter:image" content="https://voyagetech.com.ng/og-image.jpg">
+<meta name="twitter:image" content="https://voyagetech.com.ng/favicon.svg">
 <script type="application/ld+json" id="voyageOrganizationSchema">{"@context":"https://schema.org","@type":"OnlineStore","@id":"https://voyagetech.com.ng/#store","name":"Voyage Tech","url":"https://voyagetech.com.ng/","description":"Online store for laptops, smartphones and electronics in Nigeria.","areaServed":{"@type":"Country","name":"Nigeria"},"currenciesAccepted":"NGN","priceRange":"₦₦"}</script>
 <script type="application/ld+json" id="voyageWebsiteSchema">{"@context":"https://schema.org","@type":"WebSite","name":"Voyage Tech","url":"https://voyagetech.com.ng/","inLanguage":"en-NG","publisher":{"@id":"https://voyagetech.com.ng/#store"}}</script>
 <style>
@@ -355,7 +355,7 @@ function updateVoyageSEO(product){
  let canonical=document.querySelector('link[rel="canonical"]');if(canonical)canonical.href=url;
  let schema=document.getElementById('voyageProductSchema');if(schema)schema.remove();
  if(product){const priceValue=Array.isArray(product.variants)&&product.variants.length?Math.min(...product.variants.map(v=>price(product,v))):price(product);
- const data={"@context":"https://schema.org","@type":"Product","name":product.name||"Product","description":description,"image":(product.images||[product.img]).filter(Boolean),"sku":String(product.id),"brand":{"@type":"Brand","name":product.brand||"Voyage Tech"},"offers":{"@type":"Offer","url":url,"priceCurrency":"NGN","price":Number(priceValue).toFixed(0),"availability":"https://schema.org/InStock","seller":{"@id":base+"#store"}}};
+ const data={"@context":"https://schema.org","@type":"Product","name":product.name||"Product","description":description,"image":(product.images||[product.img]).filter(Boolean),"sku":String(product.id),"brand":{"@type":"Brand","name":product.brand||"Voyage Tech"},"offers":{"@type":"Offer","url":url,"priceCurrency":"NGN","price":Number(priceValue).toFixed(0),"seller":{"@id":base+"#store"}}};
  schema=document.createElement('script');schema.type='application/ld+json';schema.id='voyageProductSchema';schema.textContent=JSON.stringify(data);document.head.appendChild(schema);
  }
 }
