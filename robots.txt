@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /account
+Disallow: /checkout
+Disallow: /cart
+
+Sitemap: https://voyagetech.com.ng/sitemap.xml
