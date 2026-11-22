@@ -574,7 +574,29 @@ document.getElementById('orderForm')?.addEventListener('submit',async e=>{
  const resetSubmitButton=()=>{if(submitButton){submitButton.disabled=false;submitButton.textContent='Submit review order';submitButton.removeAttribute('aria-busy')}};
  setSubmitStatus('Checking your order details…');
 
- let user;try{await auth.authStateReady();user=auth.currentUser}catch(authError){console.error('Firebase authentication readiness failed:',authError);setSubmitStatus('We could not verify your sign-in session. Refresh the page, sign in again, and retry.',true);resetSubmitButton();return}if(!user){setSubmitStatus('Please sign in before placing an order.',true);resetSubmitButton();msg('Please sign in before placing an order.');return}
+ let user=auth.currentUser;
+ if(!user){
+  try{
+   user=await new Promise((resolve,reject)=>{
+    let settled=false;
+    const finish=(value,error,unsubscribe)=>{if(settled)return;settled=true;clearTimeout(timer);if(unsubscribe)unsubscribe();if(error)reject(error);else resolve(value)};
+    let unsubscribe=()=>{};
+    const timer=setTimeout(()=>finish(null,new Error('Firebase sign-in check timed out after 12 seconds. Please refresh the page, sign in again, and retry.')),12000);
+    unsubscribe=onAuthStateChanged(auth,value=>finish(value,null,unsubscribe),error=>finish(null,error,unsubscribe));
+   });
+  }catch(authError){
+   console.error('Firebase authentication check failed:',authError);
+   setSubmitStatus(authError?.message||'We could not verify your sign-in session. Refresh the page, sign in again, and retry.',true);
+   resetSubmitButton();
+   return;
+  }
+ }
+ if(!user){
+  setSubmitStatus('Your sign-in session is not active. Please sign in, then return to your cart and submit the order again.',true);
+  resetSubmitButton();
+  msg('Please sign in before placing an order.');
+  return;
+ }
  const selectedMethod=method||'transfer';
  const cartItems=Object.entries(cart||{}).map(([key,q])=>{const line=cartLineInfo(key);return line.product?{id:line.id,variantId:line.variant?.id||null,specification:line.variant?.spec||line.product.spec||'',name:line.name,quantity:q,unitPrice:line.unitPrice,image:line.image}:null}).filter(Boolean);
  if(!cartItems.length){setSubmitStatus('Your cart is empty. Add a product before submitting.',true);resetSubmitButton();msg('Your cart is empty.');return}
