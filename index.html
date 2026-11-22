@@ -573,6 +573,7 @@ document.getElementById('orderForm')?.addEventListener('submit',async e=>{
  const setSubmitStatus=(message,isError=false)=>{if(submitStatus){submitStatus.textContent=message;submitStatus.style.display=message?'block':'none';submitStatus.style.color=isError?'#b42318':'#475467'}};
  const resetSubmitButton=()=>{if(submitButton){submitButton.disabled=false;submitButton.textContent='Submit review order';submitButton.removeAttribute('aria-busy')}};
  setSubmitStatus('Checking your order details…');
+ try{
 
  let user=auth.currentUser;
  if(!user){
@@ -616,6 +617,11 @@ document.getElementById('orderForm')?.addEventListener('submit',async e=>{
  const refCode='VT-'+Math.random().toString(36).slice(2,8).toUpperCase();try{msg('Submitting your order securely…');const proofUrl=await uploadProof(proofFile,user.uid,refCode,'payment-proofs');if(submitButton)submitButton.textContent='Saving order…';setSubmitStatus('Receipt uploaded successfully. Saving your order for the store to review…');await addDoc(collection(db,'orders'),{reference:refCode,uid:user.uid,customerEmail:user.email||'',customerName:user.displayName||'',items:cartItems,itemsText:cartItems.map(x=>`${x.name}${x.specification?' ('+x.specification+')':''} × ${x.quantity}`).join(', '),subtotal,discount,couponCode:appliedCoupon?.code||'',couponDiscount:couponDiscountValue,deliveryFee:fee,total,method:selectedMethod,fulfillment:fulfillment==='pickup'?'Shop pickup':'Delivery',delivery:{region,state,lga,address,phone},proofUrl,status:'Awaiting payment verification',createdAt:serverTimestamp()});try{await recordCouponRedemption(refCode)}catch(couponErr){console.error('Coupon redemption tracking failed after order save:',couponErr);msg('Your order was submitted. Coupon usage tracking needs admin attention.')}
  document.getElementById('checkoutFormWrap').style.display='none';document.getElementById('successView').style.display='block';document.getElementById('successText').innerHTML=`Order reference <b>${esc(refCode)}</b><br>Total: <b>₦${total.toLocaleString('en-NG')}</b><br>Your order and payment proof have been submitted for review. Payment is not confirmed until verified by Voyage Tech.`;cart={};if(typeof persistCart==='function')persistCart();if(typeof updateCart==='function')updateCart();msg('Order submitted for review.');
  }catch(err){console.error(err);const detail=(err?.code||err?.message||'Unknown error');setSubmitStatus('Submission failed: '+detail+'. Your order was not confirmed. Please retry once.',true);msg('Order submission failed: '+detail+'. Your order was not confirmed; please retry once.')}finally{resetSubmitButton()}
+ }catch(unexpectedCheckoutError){
+  console.error('Unexpected checkout submission error:',unexpectedCheckoutError);
+  setSubmitStatus('We could not prepare your order: '+(unexpectedCheckoutError?.message||'Unexpected error')+'. Please refresh and try again. If this continues, contact the store.',true);
+  msg('We could not prepare your order. '+(unexpectedCheckoutError?.message||'Unexpected error'));
+ }finally{resetSubmitButton()}
 },true);
 loadProducts();
 </script>
