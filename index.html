@@ -406,27 +406,25 @@ document.getElementById('trackForm').addEventListener('submit',async e=>{
  const id=document.getElementById('trackId').value.trim().toUpperCase();
  const host=document.getElementById('trackResult');
  const form=document.getElementById('trackForm');
- const button=form.querySelector('button[type="submit"],button:not([type])');
- if(!id){host.innerHTML='<div class="v4-bank">Enter your order ID to continue.</div>';return}
- if(!window.voyageFirebaseAuth?.currentUser){
-  host.innerHTML='<div class="v4-bank">Please sign in with the account used to place this order before tracking it.</div>';return
- }
- const originalText=button?.textContent||'Track order';
- if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="vt-track-spinner" aria-hidden="true" style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;vertical-align:-3px;margin-right:9px;animation:vtTrackSpin .7s linear infinite"></span>Checking order…'}
- host.innerHTML='<div class="v4-bank" role="status" aria-live="polite">Checking your order status. Please wait…</div>';
+ const button=form.querySelector('button');
+ if(!id){host.innerHTML='<div class="v4-bank" role="alert">Enter your order ID to continue.</div>';return}
+ const user=window.voyageFirebaseAuth?.currentUser;
+ if(!user){host.innerHTML='<div class="v4-bank" role="alert">Your sign-in session is not active. Please sign in with the account used to place this order, then try again.</div>';return}
+ const originalText=button.textContent;
+ button.disabled=true;button.textContent='Checking…';button.setAttribute('aria-busy','true');
+ host.innerHTML='<div class="v4-bank" role="status" aria-live="polite">Checking your account and looking up '+esc(id)+'…</div>';
+ let timer;
  try{
-  const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('The order lookup timed out. Please check your internet connection and try again.')),15000));
-  const order=await Promise.race([window.voyageTrackOrder(id),timeout]);
-  if(!order){host.innerHTML='<div class="v4-bank" role="status">We could not find order <b>'+esc(id)+'</b> under this account. Check the order ID and sign in with the account used at checkout.</div>';return}
+  const lookup=window.voyageTrackOrder(id);
+  const order=await Promise.race([lookup,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('The tracking request did not receive a response from Firebase within 10 seconds. Please retry.')),10000)})]);
   const created=order.createdAt?.toDate?order.createdAt.toDate():order.createdAt?new Date(order.createdAt):null;
-  const payment=String(order.paymentStatus||'Awaiting verification');
-  const status=String(order.status||'Pending');
-  host.innerHTML=`<div class="v4-bank" role="status" aria-live="polite"><b>Order ${esc(order.reference||order.id)}</b><br>Order status: <b>${esc(status)}</b><br>Payment status: <b>${esc(payment)}</b><br>Total: <b>${naira(Number(order.total||0))}</b>${created&&!Number.isNaN(created.getTime())?'<br>Placed: '+esc(created.toLocaleString()):''}<br>Items: ${esc(order.itemsText|| (Array.isArray(order.items)?order.items.map(x=>(x.name||'Item')+' × '+(x.quantity||1)).join(', '):'Order details available in My Orders'))}<br><small>Tracking reflects the latest status saved by the store.</small></div>`;
+  const items=order.itemsText||(Array.isArray(order.items)?order.items.map(x=>(x.name||'Item')+' × '+(x.quantity||1)).join(', '):'Order details are available in My Orders');
+  host.innerHTML='<div class="v4-bank" role="status" aria-live="polite"><b>Order '+esc(order.reference||order.id)+'</b><br>Order status: <b>'+esc(order.status||'Pending')+'</b><br>Payment status: <b>'+esc(order.paymentStatus||'Awaiting verification')+'</b><br>Total: <b>'+naira(Number(order.total||0))+'</b>'+(created&&!Number.isNaN(created.getTime())?'<br>Placed: '+esc(created.toLocaleString()):'')+'<br>Items: '+esc(items)+'<br><small>Tracking reflects the latest status saved by the store.</small></div>';
  }catch(err){
   console.error('Order tracking failed:',err);
-  host.innerHTML='<div class="v4-bank" role="alert">Tracking could not be completed: '+esc(err?.message||err?.code||'Please try again.')+'</div>';
+  host.innerHTML='<div class="v4-bank" role="alert">Tracking failed: '+esc(err?.message||err?.code||'Please try again.')+'</div>';
  }finally{
-  if(button){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=originalText}
+  clearTimeout(timer);button.disabled=false;button.removeAttribute('aria-busy');button.textContent=originalText;
  }
 });
 let profileKey='voyageProfile:anonymous';
@@ -505,7 +503,7 @@ const CLOUDINARY_CLOUD_NAME='m6kb5nya',CLOUDINARY_UPLOAD_PRESET='voyage_tech_pro
 async function uploadCustomerMediaToCloudinary(file,folder){const body=new FormData();body.append('file',file);body.append('upload_preset',CLOUDINARY_UPLOAD_PRESET);body.append('folder',folder);const endpoint=file.type==='application/pdf'?'auto':'image';const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),45000);let response;try{response=await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${endpoint}/upload`,{method:'POST',body,signal:controller.signal})}catch(uploadError){if(uploadError?.name==='AbortError')throw new Error('Receipt upload timed out after 45 seconds. Check your internet connection and try again.');throw new Error('Receipt upload could not reach Cloudinary. Check your internet connection and try again.')}finally{clearTimeout(timeout)}let data={};try{data=await response.json()}catch{}if(!response.ok||!data.secure_url)throw new Error(data.error?.message||`Cloudinary upload failed (HTTP ${response.status}). Check the unsigned upload preset.`);return data.secure_url}
 window.voyageUploadCustomerMedia=(file,folder)=>uploadCustomerMediaToCloudinary(file,folder);
 window.voyageCreateSavePlan=async({file,total,deposit,duration,frequency,productNames,name,phone,email})=>{const user=auth.currentUser;if(!user)throw new Error('Please sign in again.');const reference='SB-'+Math.random().toString(36).slice(2,8).toUpperCase();const proofUrl=await uploadCustomerMediaToCloudinary(file,'voyage-tech/save-to-buy-proofs');const payload={reference,uid:user.uid,customerName:name,customerPhone:phone,customerEmail:email||user.email||'',productNames,total:Number(total),deposit:Number(deposit),paid:0,pendingDeposit:Number(deposit),balance:Number(total),duration:Number(duration),frequency,status:'Awaiting deposit verification',proofUrl,createdAt:serverTimestamp()};await addDoc(collection(db,'savePlans'),payload);return {reference,proofUrl}};
-window.voyageLoadCustomerOrders=async(uid)=>{if(!uid)throw new Error('Your sign-in session is missing. Please sign out and sign in again.');const request=getDocs(query(collection(db,'orders'),where('uid','==',uid)));let timer;try{const snap=await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Order lookup timed out. Please try again.')),10000)})]);return snap.docs.map(d=>({id:d.id,...d.data()}));}finally{clearTimeout(timer)}};window.voyageTrackOrder=async(reference)=>{const user=auth.currentUser||window.voyageFirebaseAuth?.currentUser;if(!user)throw new Error('Your sign-in session is not ready. Please sign in again.');const normalized=String(reference||'').replace(/\\s+/g,'').toUpperCase();if(!normalized)throw new Error('Enter your order reference.');const orders=await window.voyageLoadCustomerOrders(user.uid);const match=orders.find(o=>String(o.reference||o.id).replace(/\\s+/g,'').toUpperCase()===normalized);return match||null};
+window.voyageLoadCustomerOrders=async(uid)=>{if(!uid)throw new Error('Your sign-in session is missing. Please sign out and sign in again.');const snap=await getDocs(query(collection(db,'orders'),where('uid','==',uid)));return snap.docs.map(d=>({id:d.id,...d.data()}));};window.voyageTrackOrder=async(reference)=>{const user=window.voyageFirebaseAuth?.currentUser;if(!user)throw new Error('Your sign-in session is not ready. Please sign in again.');const normalized=String(reference||'').trim().replace(/\s+/g,'').toUpperCase();if(!normalized)throw new Error('Enter your order reference.');const orders=await window.voyageLoadCustomerOrders(user.uid);const match=orders.find(o=>String(o.reference||o.id).trim().replace(/\s+/g,'').toUpperCase()===normalized);if(!match)throw new Error('Order '+normalized+' was not found in the signed-in account. The dashboard and tracking must use the same customer account.');return match};
 const msg=(t)=>{if(typeof window.toast==='function')window.toast(t);else alert(t)};
 const esc=(x='')=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function syncProduct(p){let i=products.findIndex(x=>x.id===p.id);if(i<0)products.push(p);else products[i]=p}
