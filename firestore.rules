@@ -79,6 +79,24 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Public order tracking exposes only safe progress fields for a known reference.
+    // Customers can create a tracking record only for an order they own; only admins can update it.
+    match /publicOrderTracking/{trackingId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.reference == trackingId
+          && request.resource.data.orderId is string
+          && exists(/databases/$(database)/documents/orders/$(request.resource.data.orderId))
+          && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.uid == request.auth.uid
+          && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.reference == trackingId
+          && request.resource.data.keys().hasOnly(['reference', 'orderId', 'status', 'paymentStatus', 'total', 'itemsText', 'fulfillment', 'createdAt', 'updatedAt'])
+        );
+      allow update, delete: if isAdmin();
+    }
+
     // Save-to-Buy plans belong to the customer who submitted them.
     match /savePlans/{planId} {
       allow create: if signedIn()
