@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // This matches the administrator email used by Voyage Tech's website code.
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email in [
+          'Voyagestyles@gmail.com',
+          'voyagestyles@gmail.com'
+        ];
+    }
+
+    function ownsResource() {
+      return signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // Product catalogue: visitors can browse; only the administrator can change it.
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Categories are public to browse and administrator-managed.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Storefront settings are displayed publicly; only admin may change them.
+    match /storeSettings/{settingId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Customers need to read a known coupon code at checkout.
+    // Only admin can list, create, deactivate, or delete coupons.
+    // A customer transaction may increment usedCount by exactly one and
+    // cannot change the coupon's other fields.
+    match /coupons/{couponId} {
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.active == true
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['usedCount', 'updatedAt'])
+          && request.resource.data.usedCount == resource.data.usedCount + 1
+        );
+    }
+
+    // One redemption record per order reference, created by that customer.
+    match /couponRedemptions/{redemptionId} {
+      allow get, list: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.orderReference == redemptionId
+        && request.resource.data.couponCode is string;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Customers can submit and view only their own orders.
+    // Admin can view and update all orders from the admin dashboard.
+    match /orders/{orderId} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+      allow get, list: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Save-to-Buy plans belong to the customer who submitted them.
+    match /savePlans/{planId} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+      allow get, list: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Everything not explicitly listed above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
