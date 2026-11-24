@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
         if (coupon.active !== true || (expiry && expiry < Date.now()) || (Number(coupon.maxUses || 0) > 0 && Number(coupon.usedCount || 0) >= Number(coupon.maxUses)) || computedSubtotal < Number(coupon.minOrder || 0)) {
           throw Object.assign(new Error('The coupon is inactive, expired, below its minimum order, or has reached its usage limit.'), { status: 400 });
         }
-        const value = Number(coupon.value || 0);
+        const value = Number(coupon.value ?? coupon.amount ?? 0);
         const expectedDiscount = coupon.type === 'fixed' ? Math.min(computedSubtotal, Math.max(0, value)) : Math.min(computedSubtotal, Math.round(computedSubtotal * Math.max(0, Math.min(100, value)) / 100));
         if (Math.abs(expectedDiscount - Number(body.discount || 0)) > 1) throw Object.assign(new Error('The coupon discount changed. Apply the coupon again.'), { status: 409 });
       } else if (Number(body.discount || 0) > 0) {
