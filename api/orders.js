@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
 
     const orderRef = db.collection('orders').doc();
     const trackingRef = db.collection('publicOrderTracking').doc(reference);
-    const code = String(body.affiliateCode || '').trim().toUpperCase();
+    let code = String(body.affiliateCode || '').trim().toUpperCase();
     const couponCode = String(body.couponCode || '').trim().toUpperCase();
     const deductions = [];
     const stockUpdates = [];
@@ -77,10 +77,8 @@ module.exports = async function handler(req, res) {
       }
 
       if (code) {
-        if (!affiliateSnap || !affiliateSnap.exists || affiliateSnap.data().status !== 'active' || !affiliateSnap.data().uid || affiliateSnap.data().uid === user.uid) {
-          throw Object.assign(new Error('The affiliate referral is invalid. Remove the referral and retry checkout.'), { status: 400 });
-        }
-        affiliateUid = affiliateSnap.data().uid;
+        if (affiliateSnap && affiliateSnap.exists && affiliateSnap.data().status === 'active' && affiliateSnap.data().uid && affiliateSnap.data().uid !== user.uid) affiliateUid = affiliateSnap.data().uid;
+        else code = '';
       }
 
       await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
