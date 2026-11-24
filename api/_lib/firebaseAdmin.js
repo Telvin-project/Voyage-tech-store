@@ -43,7 +43,7 @@ function send(res, status, body) {
 }
 
 function safeReference(value) {
-  return String(value || '').trim().replace(/\\s+/g, '').toUpperCase();
+  return String(value || '').trim().replace(/\s+/g, '').toUpperCase();
 }
 
 async function createCommission(tx, db, orderRef, order, now) {
