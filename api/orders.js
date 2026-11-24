@@ -97,6 +97,7 @@ module.exports = async function handler(req, res) {
       if (Math.abs(total - Number(body.total || 0)) > 1) throw Object.assign(new Error('Your order total has changed. Refresh checkout and try again.'), { status: 409 });
       const order = {
         reference, uid: user.uid,
+        klumpReference: String(body.klumpReference || ''),
         customerEmail: String(body.customerEmail || user.email || ''),
         customerName: String(body.customerName || ''),
         items: normalizedItems,
