@@ -81,8 +81,6 @@ module.exports = async function handler(req, res) {
         else code = '';
       }
 
-      await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
-
       for (const deduction of deductions) {
         const productRef = db.collection('products').doc(deduction.productId);
         const current = products.get(deduction.productId).data();
@@ -115,6 +113,8 @@ module.exports = async function handler(req, res) {
         stockRestored: false,
         createdAt: FieldValue.serverTimestamp()
       };
+      // Build the order before calculating commission; all transaction reads still happen before writes.
+      await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
       tx.create(orderRef, order);
       tx.create(trackingRef, {
         reference, orderId: orderRef.id,
