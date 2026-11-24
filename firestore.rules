@@ -72,8 +72,7 @@ service cloud.firestore {
     // Customers can submit and view only their own orders.
     // Admin can view and update all orders from the admin dashboard.
     match /orders/{orderId} {
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
+      allow create: if isAdmin();
       allow get, list: if isAdmin()
         || (signedIn() && resource.data.uid == request.auth.uid);
       allow update, delete: if isAdmin();
@@ -95,6 +94,44 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['reference', 'orderId', 'status', 'paymentStatus', 'total', 'itemsText', 'fulfillment', 'createdAt', 'updatedAt'])
         );
       allow update, delete: if isAdmin();
+    }
+
+    // AFFILIATE APPLICATIONS: customers may submit and read their own application.
+    match /affiliateApplications/{uid} {
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending';
+      allow get, list: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // AFFILIATE PROFILES: private dashboard data belongs to the affiliate and admin.
+    match /affiliateProfiles/{uid} {
+      allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Affiliate codes can be checked by checkout but cannot be enumerated.
+    match /affiliateCodes/{code} {
+      allow get: if resource.data.status == 'active';
+      allow list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Commission history is visible only to the affiliate and administrator.
+    match /affiliateCommissions/{commissionId} {
+      allow get, list: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Payout records are controlled by the administrator.
+    match /affiliatePayouts/{payoutId} {
+      allow get, list: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if isAdmin();
     }
 
     // Save-to-Buy plans belong to the customer who submitted them.
