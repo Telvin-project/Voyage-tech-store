@@ -80,6 +80,8 @@ module.exports = async function handler(req, res) {
         affiliateUid = affiliateSnap.data().uid;
       }
 
+      await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
+
       for (const deduction of deductions) {
         const productRef = db.collection('products').doc(deduction.productId);
         const current = products.get(deduction.productId).data();
@@ -130,7 +132,6 @@ module.exports = async function handler(req, res) {
           updatedAt: FieldValue.serverTimestamp()
         });
       }
-      await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
     });
 
     return send(res, 201, { ok: true, id: orderRef.id, reference });
