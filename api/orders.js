@@ -55,9 +55,10 @@ module.exports = async function handler(req, res) {
         computedSubtotal += actual * item.quantity;
         if (product.stockQuantity !== undefined && product.stockQuantity !== null) {
           const available = Math.max(0, Math.floor(Number(product.stockQuantity) || 0));
-          if (available < item.quantity) throw Object.assign(new Error((product.name || item.name) + ' has only ' + available + ' left in stock.'), { status: 409 });
           const existing = deductions.find(d => d.productId === item.id);
-          if (existing) existing.quantity += item.quantity;
+          const requestedTotal = (existing?.quantity || 0) + item.quantity;
+          if (available < requestedTotal) throw Object.assign(new Error((product.name || item.name) + ' has only ' + available + ' left in stock.'), { status: 409 });
+          if (existing) existing.quantity = requestedTotal;
           else deductions.push({ productId: item.id, quantity: item.quantity });
         }
       }
