@@ -81,14 +81,6 @@ module.exports = async function handler(req, res) {
         else code = '';
       }
 
-      for (const deduction of deductions) {
-        const productRef = db.collection('products').doc(deduction.productId);
-        const current = products.get(deduction.productId).data();
-        const remaining = Math.max(0, Math.floor(Number(current.stockQuantity) || 0)) - deduction.quantity;
-        tx.update(productRef, { stockQuantity: remaining, updatedAt: FieldValue.serverTimestamp() });
-        stockUpdates.push({ id: deduction.productId, stockQuantity: remaining });
-      }
-
       const discount = Math.max(0, Number(body.discount || 0));
       const fee = Math.max(0, Number(body.deliveryFee || 0));
       const total = computedSubtotal - discount + fee;
@@ -113,8 +105,15 @@ module.exports = async function handler(req, res) {
         stockRestored: false,
         createdAt: FieldValue.serverTimestamp()
       };
-      // Build the order before calculating commission; all transaction reads still happen before writes.
+      // Complete all reads (including commission eligibility) before writing to the transaction.
       await createCommission(tx, db, orderRef, order, FieldValue.serverTimestamp());
+      for (const deduction of deductions) {
+        const productRef = db.collection('products').doc(deduction.productId);
+        const current = products.get(deduction.productId).data();
+        const remaining = Math.max(0, Math.floor(Number(current.stockQuantity) || 0)) - deduction.quantity;
+        tx.update(productRef, { stockQuantity: remaining, updatedAt: FieldValue.serverTimestamp() });
+        stockUpdates.push({ id: deduction.productId, stockQuantity: remaining });
+      }
       tx.create(orderRef, order);
       tx.create(trackingRef, {
         reference, orderId: orderRef.id,
