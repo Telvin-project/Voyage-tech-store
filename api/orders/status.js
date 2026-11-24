@@ -21,7 +21,9 @@ module.exports = async function handler(req, res) {
 
     if (!orderId) return send(res, 400, { error: 'Order ID is required.' });
     const orderRef = db.collection('orders').doc(String(orderId));
+    const stockUpdates = [];
     await db.runTransaction(async tx => {
+      stockUpdates.length = 0;
       const orderSnap = await tx.get(orderRef);
       if (!orderSnap.exists) throw Object.assign(new Error('Order not found.'), { status: 404 });
       const order = orderSnap.data();
@@ -63,10 +65,9 @@ module.exports = async function handler(req, res) {
           deductions.forEach((deduction, index) => {
             const snap = productSnaps[index];
             if (snap && snap.exists && snap.data().stockQuantity !== undefined && snap.data().stockQuantity !== null) {
-              tx.update(snap.ref, {
-                stockQuantity: Math.max(0, Math.floor(Number(snap.data().stockQuantity) || 0)) + Math.max(0, Math.floor(Number(deduction.quantity) || 0)),
-                updatedAt: FieldValue.serverTimestamp()
-              });
+              const restored = Math.max(0, Math.floor(Number(snap.data().stockQuantity) || 0)) + Math.max(0, Math.floor(Number(deduction.quantity) || 0));
+              tx.update(snap.ref, { stockQuantity: restored, updatedAt: FieldValue.serverTimestamp() });
+              stockUpdates.push({ id: String(deduction.productId), stockQuantity: restored });
             }
           });
         }
@@ -82,10 +83,9 @@ module.exports = async function handler(req, res) {
           deductions.forEach((deduction, index) => {
             const snap = productSnaps[index];
             if (snap && snap.exists && snap.data().stockQuantity !== undefined && snap.data().stockQuantity !== null) {
-              tx.update(snap.ref, {
-                stockQuantity: Math.max(0, Math.floor(Number(snap.data().stockQuantity) || 0)) + Math.max(0, Math.floor(Number(deduction.quantity) || 0)),
-                updatedAt: FieldValue.serverTimestamp()
-              });
+              const restored = Math.max(0, Math.floor(Number(snap.data().stockQuantity) || 0)) + Math.max(0, Math.floor(Number(deduction.quantity) || 0));
+              tx.update(snap.ref, { stockQuantity: restored, updatedAt: FieldValue.serverTimestamp() });
+              stockUpdates.push({ id: String(deduction.productId), stockQuantity: restored });
             }
           });
         }
@@ -96,7 +96,7 @@ module.exports = async function handler(req, res) {
         throw Object.assign(new Error('Unsupported order action.'), { status: 400 });
       }
     });
-    return send(res, 200, { ok: true });
+    return send(res, 200, { ok: true, stockUpdates });
   } catch (error) {
     console.error('Admin order action failed:', error);
     return send(res, error.status || 500, { error: error.message || 'Could not update this order.' });
