@@ -26,7 +26,9 @@ async function requireUser(req) {
     throw error;
   }
   const { auth, db, FieldValue } = getAdminServices();
-  const decoded = await auth.verifyIdToken(token);
+  let decoded;
+  try { decoded = await auth.verifyIdToken(token); }
+  catch { const error = new Error('Your sign-in session is invalid or expired. Please sign in again.'); error.status = 401; throw error; }
   return { user: decoded, db, FieldValue };
 }
 
@@ -39,7 +41,8 @@ function requireAdmin(user) {
 }
 
 function send(res, status, body) {
-  res.status(status).setHeader('Cache-Control', 'no-store').json(body);
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(status).json(body);
 }
 
 function safeReference(value) {
