@@ -1,4 +1,4 @@
-const { requireUser, requireAdmin, send, safeReference, createCommission } = require('../_lib/firebaseAdmin');
+const { requireUser, requireAdmin, send, safeReference, createCommission } = require('../../lib/firebaseAdmin');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed.' });
