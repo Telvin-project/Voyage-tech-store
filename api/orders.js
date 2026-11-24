@@ -15,6 +15,7 @@ module.exports = async function handler(req, res) {
     const code = String(body.affiliateCode || '').trim().toUpperCase();
     const couponCode = String(body.couponCode || '').trim().toUpperCase();
     const deductions = [];
+    const stockUpdates = [];
     let computedSubtotal = 0;
     const normalizedItems = items.map(item => ({
       id: String(item.id || ''),
@@ -85,10 +86,9 @@ module.exports = async function handler(req, res) {
       for (const deduction of deductions) {
         const productRef = db.collection('products').doc(deduction.productId);
         const current = products.get(deduction.productId).data();
-        tx.update(productRef, {
-          stockQuantity: Math.max(0, Math.floor(Number(current.stockQuantity) || 0)) - deduction.quantity,
-          updatedAt: FieldValue.serverTimestamp()
-        });
+        const remaining = Math.max(0, Math.floor(Number(current.stockQuantity) || 0)) - deduction.quantity;
+        tx.update(productRef, { stockQuantity: remaining, updatedAt: FieldValue.serverTimestamp() });
+        stockUpdates.push({ id: deduction.productId, stockQuantity: remaining });
       }
 
       const discount = Math.max(0, Number(body.discount || 0));
@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
       }
     });
 
-    return send(res, 201, { ok: true, id: orderRef.id, reference });
+    return send(res, 201, { ok: true, id: orderRef.id, reference, stockUpdates });
   } catch (error) {
     console.error('Create order failed:', error);
     return send(res, error.status || 500, { error: error.message || 'Could not create the order.' });
