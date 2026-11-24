@@ -31,6 +31,7 @@ module.exports = async function handler(req, res) {
 
     let affiliateUid = null;
     await db.runTransaction(async tx => {
+      deductions.length = 0; stockUpdates.length = 0; computedSubtotal = 0; affiliateUid = null;
       const productRefs = [...new Map(normalizedItems.map(i => [i.id, db.collection('products').doc(i.id)])).values()];
       const productSnaps = await Promise.all(productRefs.map(ref => tx.get(ref)));
       const products = new Map(productSnaps.map(snap => [snap.id, snap]));
