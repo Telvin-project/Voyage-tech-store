@@ -56,6 +56,7 @@ module.exports = async function handler(req, res) {
       } else if (action === 'setStatus' || action === 'cancel') {
         const nextStatus = action === 'cancel' ? 'Cancelled' : String(status || '');
         const allowed = ['Pending', 'Submitted', 'Awaiting payment verification', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        if (order.status === 'Cancelled' && nextStatus !== 'Cancelled') throw Object.assign(new Error('A cancelled order cannot be reopened. Create a new order instead.'), { status: 409 });
         if (!allowed.includes(nextStatus)) throw Object.assign(new Error('Invalid order status.'), { status: 400 });
         if (nextStatus === 'Cancelled' && !restoreStock) throw Object.assign(new Error('Invalid cancellation.'), { status: 400 });
         if (restoreStock && order.stockDeducted && !order.stockRestored) {
