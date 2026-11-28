@@ -143,6 +143,24 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Anonymous visitor analytics: public browsers may submit limited, non-identifying events; only admin can read them.
+    match /visitorAnalytics/{eventId} {
+      allow create: if request.resource.data.keys().hasOnly(['sessionId', 'source', 'medium', 'campaign', 'page', 'createdAt'])
+        && request.resource.data.sessionId is string
+        && request.resource.data.sessionId.size() <= 80
+        && request.resource.data.source is string
+        && request.resource.data.source.size() <= 80
+        && request.resource.data.medium is string
+        && request.resource.data.medium.size() <= 100
+        && request.resource.data.campaign is string
+        && request.resource.data.campaign.size() <= 150
+        && request.resource.data.page is string
+        && request.resource.data.page.size() <= 300
+        && request.resource.data.createdAt == request.time;
+      allow get, list: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // Everything not explicitly listed above is denied.
     match /{document=**} {
       allow read, write: if false;
